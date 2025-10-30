@@ -1,0 +1,208 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the CollabDraw application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "username": {
+          "type": "string",
+          "description": "The username of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the user.",
+          "format": "email"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The timestamp when the user account was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "username",
+        "email",
+        "createdAt"
+      ]
+    },
+    "Whiteboard": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Whiteboard",
+      "type": "object",
+      "description": "Represents a collaborative whiteboard.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Whiteboard entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the whiteboard."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The timestamp when the whiteboard was created.",
+          "format": "date-time"
+        },
+        "lastModified": {
+          "type": "string",
+          "description": "The timestamp when the whiteboard was last modified.",
+          "format": "date-time"
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "The UID of the user who owns the whiteboard."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "createdAt",
+        "lastModified",
+        "ownerId"
+      ]
+    },
+    "DrawingEvent": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DrawingEvent",
+      "type": "object",
+      "description": "Represents a single drawing event on the whiteboard.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the DrawingEvent entity."
+        },
+        "whiteboardId": {
+          "type": "string",
+          "description": "Reference to Whiteboard. (Relationship: Whiteboard 1:N DrawingEvent)"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N DrawingEvent)"
+        },
+        "eventType": {
+          "type": "string",
+          "description": "The type of drawing event (e.g., 'pen', 'eraser', 'shape', 'text')."
+        },
+        "eventData": {
+          "type": "string",
+          "description": "JSON string containing the data for the drawing event (e.g., coordinates, color, shape type, text)."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "The timestamp when the drawing event occurred.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "whiteboardId",
+        "userId",
+        "eventType",
+        "eventData",
+        "timestamp"
+      ]
+    },
+    "ChatMessage": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ChatMessage",
+      "description": "Represents a single message in a whiteboard chat.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The UID of the user who sent the message."
+        },
+        "userName": {
+          "type": "string",
+          "description": "The name of the user who sent the message."
+        },
+        "text": {
+          "type": "string",
+          "description": "The content of the chat message."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "The timestamp when the message was sent.",
+          "format": "date-time"
+        }
+      },
+      "required": ["userId", "userName", "text", "timestamp"]
+    },
+    "Participant": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Participant",
+      "description": "Represents a user currently in a whiteboard session.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The UID of the user."
+        },
+        "name": {
+          "type": "string",
+          "description": "The display name of the user for this session."
+        }
+      },
+      "required": ["userId", "name"]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": { "$ref": "#/backend/entities/User" },
+          "description": "Stores user profiles."
+        }
+      },
+      {
+        "path": "/whiteboards/{whiteboardId}",
+        "definition": {
+          "entityName": "Whiteboard",
+          "schema": { "$ref": "#/backend/entities/Whiteboard" },
+          "description": "Stores all whiteboards for the application."
+        }
+      },
+      {
+        "path": "/whiteboards/{whiteboardId}/drawingEvents/{drawingEventId}",
+        "definition": {
+          "entityName": "DrawingEvent",
+          "schema": { "$ref": "#/backend/entities/DrawingEvent" },
+          "description": "Stores drawing events for a whiteboard."
+        }
+      },
+      {
+        "path": "/whiteboards/{whiteboardId}/messages/{messageId}",
+        "definition": {
+          "entityName": "ChatMessage",
+          "schema": { "$ref": "#/backend/entities/ChatMessage" },
+          "description": "Stores chat messages for a specific whiteboard."
+        }
+      },
+      {
+        "path": "/whiteboards/{whiteboardId}/participants/{participantId}",
+        "definition": {
+          "entityName": "Participant",
+          "schema": { "$ref": "#/backend/entities/Participant" },
+          "description": "Stores the list of active participants in a whiteboard."
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to be scalable and secure. Whiteboards are a top-level collection, allowing for easy querying. Drawing events, chat messages, and participants are stored in subcollections under each whiteboard, which simplifies security rules and data retrieval for a specific room. This ensures that data is logically grouped and access can be controlled granularly."
+  }
+}

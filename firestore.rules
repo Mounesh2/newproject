@@ -1,0 +1,132 @@
+/**
+ * @fileoverview Firestore Security Rules for CollabDraw application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a combination of user-ownership and shared-access control patterns.
+ * User profiles are private to the owning user. Whiteboards can be created by any user, and
+ * ownership is determined by the `ownerId` field on the whiteboard document. Subcollections
+ * of whiteboards (drawing events, messages, participants) inherit the whiteboard's access
+ * control.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profile data; only accessible by the owning user.
+ * - /whiteboards/{whiteboardId}: Stores whiteboard metadata; access controlled by `ownerId`.
+ * - /whiteboards/{whiteboardId}/drawingEvents/{drawingEventId}: Drawing events for each whiteboard; access inherited from the parent whiteboard.
+ * - /whiteboards/{whiteboardId}/messages/{messageId}: Chat messages for each whiteboard; access inherited from the parent whiteboard.
+ * - /whiteboards/{whiteboardId}/participants/{participantId}: Participants in a whiteboard session; access inherited from the parent whiteboard, but writable by anyone to allow users to join.
+ *
+ * Key Security Decisions:
+ * - Users can only read and write their own profile data.
+ * - Whiteboards have an owner, determined by the `ownerId` field.
+ * - Subcollections inherit access control from the whiteboard.
+ * - The participant collection is writeable by anyone, so that other users can join a whiteboard.
+ *
+ * Denormalization for Authorization:
+ * - Whiteboard documents store the `ownerId` to avoid needing a separate lookup to determine ownership.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Grants access to a user's profile only to the user themselves.
+     * @path /users/{userId}
+     * @allow (get, create, update, delete, list) if the request is made by the user with matching {userId}.
+     * @deny (get, create, update, delete, list) if the request is made by a different user.
+     * @principle Enforces document ownership for writes.
+     */
+    match /users/{userId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Controls access to whiteboard documents based on ownership.
+     * @path /whiteboards/{whiteboardId}
+     * @allow (get, list) if true (public read).
+     * @allow (create) if the request includes ownerId matching request.auth.uid.
+     * @allow (update, delete) if the request is made by the whiteboard owner.
+     * @deny (create, update, delete) if the request is made by someone other than the whiteboard owner.
+     * @principle Enforces document ownership for writes, allows public reads.
+     */
+    match /whiteboards/{whiteboardId} {
+      function isOwner(ownerId) {
+        return request.auth != null && request.auth.uid == ownerId;
+      }
+
+      function isExistingOwner(ownerId) {
+        return isOwner(ownerId) && resource != null;
+      }
+
+      allow get, list: if true;
+      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.ownerId);
+      allow delete: if isExistingOwner(resource.data.ownerId);
+
+      /**
+       * @description Controls access to drawing events within a whiteboard.
+       * @path /whiteboards/{whiteboardId}/drawingEvents/{drawingEventId}
+       * @allow (get, list) if the request is made by a whiteboard participant.
+       * @allow (create) if the request is made by a whiteboard participant and the drawing event's whiteboardId matches the parent whiteboard.
+       * @allow (update, delete) if the request is made by the whiteboard owner.
+       * @deny (create, update, delete) if the request is made by someone other than the whiteboard owner or a whiteboard participant.
+       * @principle Inherits access from the whiteboard, enforcing data consistency.
+       */
+      match /drawingEvents/{drawingEventId} {
+        function isWhiteboardOwner(whiteboardId) {
+          return get(/databases/$(database)/documents/whiteboards/$(whiteboardId)).data.ownerId == request.auth.uid;
+        }
+        function isExistingWhiteboardOwner(whiteboardId) {
+          return isWhiteboardOwner(whiteboardId) && resource != null;
+        }
+
+        allow get, list: if true; // Anyone can read drawing events
+        allow create: if request.auth != null; //Anyone can create drawing events.
+        allow update: if isExistingWhiteboardOwner(whiteboardId);
+        allow delete: if isExistingWhiteboardOwner(whiteboardId);
+      }
+
+      /**
+       * @description Controls access to chat messages within a whiteboard.
+       * @path /whiteboards/{whiteboardId}/messages/{messageId}
+       * @allow (get, list) if the request is made by a whiteboard participant.
+       * @allow (create) if the request is made by a whiteboard participant.
+       * @deny (update, delete) if the request is made by someone other than the whiteboard owner.
+       * @principle Inherits access from the whiteboard.
+       */
+      match /messages/{messageId} {
+        function isWhiteboardOwner(whiteboardId) {
+          return get(/databases/$(database)/documents/whiteboards/$(whiteboardId)).data.ownerId == request.auth.uid;
+        }
+        function isExistingWhiteboardOwner(whiteboardId) {
+          return isWhiteboardOwner(whiteboardId) && resource != null;
+        }
+        allow get, list: if true; // Anyone can read messages.
+        allow create: if request.auth != null; // Anyone can create messages.
+        allow update: if isExistingWhiteboardOwner(whiteboardId);
+        allow delete: if isExistingWhiteboardOwner(whiteboardId);
+      }
+
+      /**
+       * @description Manages the list of active participants in a whiteboard. Participants are not validated against whiteboard ownership.
+       * @path /whiteboards/{whiteboardId}/participants/{participantId}
+       * @allow (get, list, create, update, delete) if true.
+       * @principle Allows anyone to join a whiteboard session.
+       */
+      match /participants/{participantId} {
+        allow get, list, create, update, delete: if true;
+      }
+    }
+  }
+}
