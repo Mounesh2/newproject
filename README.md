@@ -32,34 +32,6 @@ Tooling: ESLint/TSConfig (from Next.js), npm scripts
 Config present: next.config.ts, tailwind.config.ts, postcss.config.mjs, tsconfig.json 
 GitHub
 
-✨ Features
-⚡ Next.js (App Router) + TypeScript scaffold
-
-🎨 Tailwind CSS configured with PostCSS
-
-🧱 Opinionated project structure (src/…) for easy scaling
-
-🔧 Ready-to-use scripts for dev, build, and production
-
-☁️ One-click Vercel deployment (config already working) 
-GitHub
-
-Repo language breakdown shows mostly TypeScript, confirming a modern TS-first setup. 
-GitHub
-
-🗂️ Tech Stack
-Framework: Next.js (TypeScript)
-
-Styles: Tailwind CSS, PostCSS
-
-Tooling: ESLint/TSConfig (from Next.js), npm scripts
-
-Config present: next.config.ts, tailwind.config.ts, postcss.config.mjs, tsconfig.json 
-GitHub
-
-Note: Repo also contains firestore.rules — if you connect Firebase later, follow the env setup section below. 
-GitHub
-
 🚀 Quick Start
 # 1) Clone
 git clone https://github.com/Mounesh2/newproject.git
